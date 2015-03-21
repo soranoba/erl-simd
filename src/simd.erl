@@ -1,5 +1,5 @@
 -module(simd).
--export([foo/1, bar/1, get_priv/0, init/0]).
+-export([foo/1, bar/1, list/1, get_priv/0, init/0]).
 -on_load(init/0).
 
 init() ->
@@ -10,6 +10,9 @@ foo(_X) ->
     exit(nif_library_not_loaded).
 
 bar(_Y) ->
+    exit(nif_library_not_loaded).
+
+list(_X) ->
     exit(nif_library_not_loaded).
 
 %% @doc Get the priv path of wslogi.

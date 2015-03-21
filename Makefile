@@ -3,7 +3,7 @@ DIALYZER_OPTS=-Werror_handling -Wrace_conditions -Wunmatched_returns
 
 LIBS=$(ERL_LIBS):deps
 
-all: compile xref eunit dialyze
+all: compile xref
 
 init:
 	@./rebar get-deps compile
@@ -43,4 +43,3 @@ dialyze: .dialyzer.plt compile
 # Interactive eunit (Experimental)
 iunit: compile
 	@ERL_LIBS=$(LIBS) erl +K true -pz ebin .eunit -s reloader -eval 'erlang:display(application:ensure_all_started($(APP))).'
-
