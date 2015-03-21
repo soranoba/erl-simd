@@ -1,7 +1,7 @@
-# rebar create template=stdXXX で生成される無視すべきファイル
+# library
 deps
 
-# Erlang/rebarでgit管理すべきでないファイル
+# erlang, rebar
 .eunit
 *.o
 *.beam
@@ -13,9 +13,12 @@ doc/*
 !doc/*.md
 .rebar
 
-# Vimでできる必要ないファイル
+# vim
 *.swp
 tags
 
-# その他
+# emacs
 *~
+
+# C
+priv/*
