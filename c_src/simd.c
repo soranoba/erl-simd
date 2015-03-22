@@ -4,6 +4,25 @@
 
 #define ALIGN32 __attribute((aligned(32)))
 
+static ERL_NIF_TERM badd_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary bin;
+    ERL_NIF_TERM term;
+    unsigned int *d, *r;
+    int i, max;
+
+    if (!enif_inspect_binary(env, argv[0], &bin)) {
+        return enif_make_badarg(env);
+    }
+    r = (unsigned int*)enif_make_new_binary(env, bin.size, &term);
+    d = (unsigned int*)bin.data;
+    max = bin.size * sizeof(unsigned char) / sizeof(unsigned int);
+
+    for (i = 0; i < max; ++i) {
+        r[i] = d[i] * 2;
+    }
+    return term;
+}
+
 static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     double a;
     if (!enif_get_double(env, argv[0], &a)) {

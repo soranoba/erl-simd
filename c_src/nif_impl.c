@@ -1,5 +1,25 @@
 #include <erl_nif.h>
 #include <math.h>
+#include <arpa/inet.h>
+
+static ERL_NIF_TERM badd_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary bin;
+    ERL_NIF_TERM term;
+    unsigned int *d, *r;
+    int i, max;
+
+    if (!enif_inspect_binary(env, argv[0], &bin)) {
+        return enif_make_badarg(env);
+    }
+    r = (unsigned int*)enif_make_new_binary(env, bin.size, &term);
+    d = (unsigned int*)bin.data;
+    max = bin.size * sizeof(unsigned char) / sizeof(unsigned int);
+
+    for (i = 0; i < max; ++i) {
+        r[i] = d[i] * 2;
+    }
+    return term;
+}
 
 static int enif_get_number(ErlNifEnv* env, ERL_NIF_TERM term, double* dp) {
     if (!enif_get_double(env, term, dp)) {
@@ -85,7 +105,8 @@ static ERL_NIF_TERM mul_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 static ErlNifFunc nif_funcs[] = {
     {"madd", 2, madd_nif},
-    {"mul", 2, mul_nif}
+    {"mul", 2, mul_nif},
+    {"badd", 1, badd_nif}
 };
 
 ERL_NIF_INIT(nif_impl, nif_funcs, NULL, NULL, NULL, NULL)
