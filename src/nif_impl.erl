@@ -1,5 +1,5 @@
 -module(nif_impl).
--export([mul/2]).
+-export([mul/2, madd/2]).
 -on_load(init/0).
 
 init() ->
@@ -7,4 +7,7 @@ init() ->
     ok = erlang:load_nif(SoName, 0).
 
 mul(_, _) ->
+    error(nif_library_not_loaded).
+
+madd(_, _) ->
     error(nif_library_not_loaded).

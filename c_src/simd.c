@@ -1,60 +1,107 @@
 #include "erl_nif.h"
+#include <immintrin.h>
+#include <math.h>
 
-int foo(int x) {
-    return x+1;
+#define ALIGN32 __attribute((aligned(32)))
+
+static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    double a;
+    if (!enif_get_double(env, argv[0], &a)) {
+        return enif_make_badarg(env);
+    }
+    return enif_make_double(env,a + 1);
 }
 
-int bar(int y) {
-    return y*2;
+static int enif_get_number(ErlNifEnv* env, ERL_NIF_TERM term, double* dp) {
+    if (!enif_get_double(env, term, dp)) {
+        int i;
+        if (!enif_get_int(env, term, &i)) {
+            return 0;
+        }
+        *dp = i;
+    }
+    return 1;
 }
 
-static ERL_NIF_TERM list_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM enif_make_number(ErlNifEnv* env, double d) {
+    if (d == floor(d)) {
+        return enif_make_long(env, (long)d);
+    }
+    return enif_make_double(env, d);
+}
 
-    ERL_NIF_TERM head, tail;
-    int val = 0;
-    ERL_NIF_TERM ret = enif_make_list(env, 0);
-    ERL_NIF_TERM res;
+static ERL_NIF_TERM madd_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM head1, tail1, head2, tail2;
+    __m256d *m1, *m2, m4 = {0,0,0,0};
+    double ret = 0;
+    double d1[sizeof(__m256d) / sizeof(double)] ALIGN32;
+    double d2[sizeof(__m256d) / sizeof(double)] ALIGN32;
+    double d4[sizeof(__m256d) / sizeof(double)] ALIGN32 = {0};
+    unsigned int i = 0, j = 0;
 
-    tail = argv[0];
-    while(!enif_is_empty_list(env, tail)) {
-        if (!enif_get_list_cell(env, tail, &head, &tail)) {
+    tail1 = argv[0], tail2 = argv[1];
+
+    while(i == j) {
+        for (i = 0; i < sizeof(__m256d) / sizeof(double); ++i) {
+            if (enif_is_empty_list(env, tail1) && enif_is_empty_list(env, tail2)) {
+                break;
+            } else if (!enif_get_list_cell(env, tail1, &head1, &tail1)
+                       || !enif_get_list_cell(env, tail2, &head2, &tail2)
+                       || !enif_get_number(env, head1, &(d1[i]))
+                       || !enif_get_number(env, head2, &(d2[i]))) {
+                return enif_make_badarg(env);
+            }
+        }
+        for (j = i; j < sizeof(__m256d) / sizeof(double); ++j) {
+            d1[j] = d2[j] = 0.0;
+        }
+        m1 = (__m256d*)d1, m2 = (__m256d*)d2;
+        m4 = _mm256_fmadd_pd(m1[0], m2[0], m4);
+    }
+
+    _mm256_store_pd(d4, m4);
+    for (j = 0; j < sizeof(__m256d) / sizeof(double); ++j) {
+        ret += d4[j];
+    }
+    return enif_make_number(env, ret);
+}
+
+static ERL_NIF_TERM mul_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM head1, tail1, head2, tail2;
+    int val1, val2;
+    unsigned len;
+    ERL_NIF_TERM* r;
+    int i = 0;
+
+    tail1 = argv[0], tail2 = argv[1];
+    if (!enif_get_list_length(env, argv[1], &len)) {
+        return enif_make_badarg(env);
+    }
+    r = (ERL_NIF_TERM*)enif_alloc(sizeof(ERL_NIF_TERM) * len);
+
+    while (enif_get_list_cell(env, tail1, &head1, &tail1)
+           && enif_get_list_cell(env, tail2, &head2, &tail2)) {
+
+        if (!enif_get_int(env, head1, &val1)
+            | !enif_get_int(env, head2, &val2)) {
             return enif_make_badarg(env);
         }
-        if (!enif_get_int(env, head, &val)) {
-            return enif_make_badarg(env);
-        }
-        ret = enif_make_list_cell(env, enif_make_int(env, val * 2), ret);
+        r[i++] = enif_make_int(env, val1 * val2);
     }
-    if (!enif_make_reverse_list(env, ret, &res)) {
+    if (!enif_is_empty_list(env, tail1)
+        || !enif_is_empty_list(env, tail2)) {
+        enif_free(r);
         return enif_make_badarg(env);
     }
-    return res;
-}
-
-static ERL_NIF_TERM foo_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    int x, ret;
-    if (!enif_get_int(env, argv[0], &x)) {
-        return enif_make_badarg(env);
-    }
-    ret = foo(x);
-    return enif_make_int(env, ret);
-}
-
-static ERL_NIF_TERM bar_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-    int y, ret;
-    if (!enif_get_int(env, argv[0], &y)) {
-        return enif_make_badarg(env);
-    }
-    ret = bar(y);
-    return enif_make_int(env, ret);
+    head1 = enif_make_list_from_array(env, r, i);
+    enif_free(r);
+    return head1;
 }
 
 static ErlNifFunc nif_funcs[] = {
     {"foo", 1, foo_nif},
-    {"bar", 1, bar_nif},
-    {"list", 1, list_nif}
+    {"madd", 2, madd_nif},
+    {"mul", 2, mul_nif}
 };
 
 ERL_NIF_INIT(simd, nif_funcs, NULL, NULL, NULL, NULL)
