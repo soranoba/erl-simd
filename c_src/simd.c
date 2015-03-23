@@ -1,25 +1,59 @@
 #include "erl_nif.h"
 #include <immintrin.h>
 #include <math.h>
+#include <stdio.h>
 
 #define ALIGN32 __attribute((aligned(32)))
 
-static ERL_NIF_TERM badd_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    ErlNifBinary bin;
+static ERL_NIF_TERM alpha_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary bin1, bin2;
+
     ERL_NIF_TERM term;
-    unsigned int *d, *r;
+    unsigned short a;
+    __m128i *m1, *m2, *m4;
+    __m128i alpha, r_alpha, s1, s2, s11, s22, sum1, sum2,res1, res2, res;
     int i, max;
 
-    if (!enif_inspect_binary(env, argv[0], &bin)) {
+    if (!enif_get_int(env, argv[0], &i)
+        || !enif_inspect_binary(env, argv[1], &bin1)
+        || !enif_inspect_binary(env, argv[2], &bin2)) {
         return enif_make_badarg(env);
     }
-    r = (unsigned int*)enif_make_new_binary(env, bin.size, &term);
-    d = (unsigned int*)bin.data;
-    max = bin.size * sizeof(unsigned char) / sizeof(unsigned int);
+    a = (unsigned short)i;
+    alpha   = _mm_set1_epi16(a);
+    r_alpha = _mm_set1_epi16(256 - a);
 
+    m4 = (__m128i*)enif_make_new_binary(env, bin1.size, &term);
+    m1 = (__m128i*)bin1.data;
+    m2 = (__m128i*)bin2.data;
+
+    max = bin1.size * sizeof(char) / sizeof(__m128i);
     for (i = 0; i < max; ++i) {
-        r[i] = d[i] * 2;
+        {
+            s1 = _mm_cvtepu8_epi16(m1[i]);
+            s2 = _mm_cvtepu8_epi16(m2[i]);
+
+            s11 = _mm_mullo_epi16(s1, alpha);
+            s22 = _mm_mullo_epi16(s2, r_alpha);
+
+            sum1 = _mm_adds_epu16(s11, s22);
+            res1 = _mm_srli_epi16(sum1, 8);
+        }
+        {
+            s1 = _mm_cvtepu8_epi16(_mm_srli_si128(m1[i], 8));
+            s2 = _mm_cvtepu8_epi16(_mm_srli_si128(m2[i], 8));
+
+            s11 = _mm_mullo_epi16(s1, alpha);
+            s22 = _mm_mullo_epi16(s2, r_alpha);
+
+            sum2 = _mm_adds_epu16(s11, s22);
+            res2 = _mm_srli_epi16(sum2, 8);
+        }
+
+        res = _mm_packus_epi16(res1, res2);
+        _mm_storeu_si128(&(m4[i]), res);
     }
+
     return term;
 }
 
@@ -118,6 +152,7 @@ static ERL_NIF_TERM mul_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ErlNifFunc nif_funcs[] = {
+    {"alpha", 3, alpha_nif},
     {"foo", 1, foo_nif},
     {"madd", 2, madd_nif},
     {"mul", 2, mul_nif}

@@ -2,6 +2,30 @@
 #include <math.h>
 #include <arpa/inet.h>
 
+static ERL_NIF_TERM alpha_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ErlNifBinary bin1, bin2;
+
+    ERL_NIF_TERM term;
+    unsigned short a;
+    unsigned char *m4;
+    int i;
+
+    if (!enif_get_int(env, argv[0], &i)
+        || !enif_inspect_binary(env, argv[1], &bin1)
+        || !enif_inspect_binary(env, argv[2], &bin2)) {
+        return enif_make_badarg(env);
+    }
+    a = (unsigned short)i;
+
+    m4 = (unsigned char*)enif_make_new_binary(env, bin1.size, &term);
+
+    for (i = 0; i < bin1.size; ++i) {
+        m4[i] = (bin1.data[i] * a + bin2.data[i] * (256 - a)) >> 8;
+    }
+
+    return term;
+}
+
 static ERL_NIF_TERM badd_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary bin;
     ERL_NIF_TERM term;
@@ -104,6 +128,7 @@ static ERL_NIF_TERM mul_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 static ErlNifFunc nif_funcs[] = {
+    {"alpha", 3, alpha_nif},
     {"madd", 2, madd_nif},
     {"mul", 2, mul_nif},
     {"badd", 1, badd_nif}

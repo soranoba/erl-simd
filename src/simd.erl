@@ -1,10 +1,13 @@
 -module(simd).
--export([mul/2, madd/2, foo/1, get_priv/0]).
+-export([mul/2, madd/2, foo/1, get_priv/0, alpha/3]).
 -on_load(init/0).
 
 init() ->
     SoName = filename:join([get_priv(), ?MODULE]),
     ok = erlang:load_nif(SoName, 0).
+
+alpha(_X, _Y, _Z) ->
+    exit(nif_library_not_loaded).
 
 foo(_X) ->
     exit(nif_library_not_loaded).
