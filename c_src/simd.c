@@ -11,7 +11,7 @@ static ERL_NIF_TERM alpha_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ERL_NIF_TERM term;
     unsigned short a;
     __m128i *m1, *m2, *m4;
-    __m128i alpha, r_alpha, s1, s2, s11, s22, sum1, sum2,res1, res2, res;
+    __m128i alpha, r_alpha, l1, l2, s1, s2, res1, res2, res;
     int i, max;
 
     if (!enif_get_int(env, argv[0], &i)
@@ -29,25 +29,28 @@ static ERL_NIF_TERM alpha_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     max = bin1.size * sizeof(char) / sizeof(__m128i);
     for (i = 0; i < max; ++i) {
+        l1 = _mm_loadu_si128(&(m1[i]));
+        l2 = _mm_loadu_si128(&(m2[i]));
+
         {
-            s1 = _mm_cvtepu8_epi16(m1[i]);
-            s2 = _mm_cvtepu8_epi16(m2[i]);
+            s1 = _mm_cvtepu8_epi16(l1);
+            s2 = _mm_cvtepu8_epi16(l2);
 
-            s11 = _mm_mullo_epi16(s1, alpha);
-            s22 = _mm_mullo_epi16(s2, r_alpha);
+            s1 = _mm_mullo_epi16(s1, alpha);
+            s2 = _mm_mullo_epi16(s2, r_alpha);
 
-            sum1 = _mm_adds_epu16(s11, s22);
-            res1 = _mm_srli_epi16(sum1, 8);
+            s1 = _mm_adds_epu16(s1, s2);
+            res1 = _mm_srli_epi16(s1, 8);
         }
         {
-            s1 = _mm_cvtepu8_epi16(_mm_srli_si128(m1[i], 8));
-            s2 = _mm_cvtepu8_epi16(_mm_srli_si128(m2[i], 8));
+            s1 = _mm_cvtepu8_epi16(_mm_srli_si128(l1, 8));
+            s2 = _mm_cvtepu8_epi16(_mm_srli_si128(l2, 8));
 
-            s11 = _mm_mullo_epi16(s1, alpha);
-            s22 = _mm_mullo_epi16(s2, r_alpha);
+            s1 = _mm_mullo_epi16(s1, alpha);
+            s2 = _mm_mullo_epi16(s2, r_alpha);
 
-            sum2 = _mm_adds_epu16(s11, s22);
-            res2 = _mm_srli_epi16(sum2, 8);
+            s1 = _mm_adds_epu16(s1, s2);
+            res2 = _mm_srli_epi16(s1, 8);
         }
 
         res = _mm_packus_epi16(res1, res2);
